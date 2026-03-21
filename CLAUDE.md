@@ -5,36 +5,39 @@
 ## Быстрый старт
 
 ```bash
-./setup.sh                # создание venv, установка pytest
-./run.sh /path/to/dir     # сканирование (обёртка над scanner)
+./setup.sh                          # создание venv, установка pytest
+./run.sh scanner /path/to/dir       # сканирование
+./run.sh dupes dupes --db files.db  # поиск дубликатов
 ```
 
 ## Команды
 
+Все модули: `./run.sh <модуль> [аргументы...]` или `python -m fotodedup.<модуль> [аргументы...]`.
+
 ```bash
 # Сканирование (записывает в SQLite: путь, размер, MD5)
-python -m fotodedup.scanner /path1 /path2 --db files.db --min-size 10240
+./run.sh scanner /path1 /path2 --db files.db --min-size 10240
 
 # Поиск дубликатов (группы по md5+size, крупные первыми)
-python -m fotodedup.dupes dupes --db files.db
+./run.sh dupes dupes --db files.db
 
 # Сравнение двух директорий (% пересечения, уникальные, общий размер дубликатов)
-python -m fotodedup.dupes compare /dir/a /dir/b --db files.db
+./run.sh dupes compare /dir/a /dir/b --db files.db
 
 # Поиск хороших аналогов битых файлов (по имени, размеру, дате, каталогу)
-python -m fotodedup.badfiles /bad/dir /good/dir --by-name --by-size --same-dir
+./run.sh badfiles /bad/dir /good/dir --by-name --by-size --same-dir
 
 # Поиск кросс-директорных дубликатов (отчёт)
-python -m fotodedup.cleanup --db files.db
+./run.sh cleanup --db files.db
 
 # Интерактивное удаление дубликатов
-python -m fotodedup.cleanup --db files.db --delete
+./run.sh cleanup --db files.db --delete
 
 # Отключение критериев (по умолчанию AND: имя+размер+md5)
-python -m fotodedup.cleanup --db files.db --no-name --delete
+./run.sh cleanup --db files.db --no-name --delete
 
 # Проверка на порчу данных (одинаковое имя+размер, разный MD5)
-python -m fotodedup.corrupt --db files.db
+./run.sh corrupt --db files.db
 ```
 
 ## Тесты
