@@ -3,7 +3,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**[Русская версия](README.ru.md)**
+**English** | [Русский](README.ru.md)
 
 A command-line toolkit for finding duplicate files on NAS storage with metadata stored in SQLite. Designed for managing large photo and media libraries spread across multiple directories or backup copies.
 

@@ -3,7 +3,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**[English version](README.md)**
+[English](README.md) | **Русский**
 
 Набор CLI-утилит для поиска дубликатов файлов на NAS с хранением метаданных в SQLite. Разработан для управления большими фото- и медиатеками, разбросанными по нескольким директориям или резервным копиям.
 
