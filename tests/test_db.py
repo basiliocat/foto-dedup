@@ -65,6 +65,45 @@ def test_path_unique_constraint(conn):
     assert count == 1
 
 
+def test_parse_extensions_default():
+    exts = db.parse_extensions(".jpg,.jpeg,.avi,.mp4,.heic")
+    assert exts == {".jpg", ".jpeg", ".avi", ".mp4", ".heic"}
+
+
+def test_parse_extensions_glob_style():
+    exts = db.parse_extensions("*.jpg,*.png")
+    assert exts == {".jpg", ".png"}
+
+
+def test_parse_extensions_no_dot():
+    exts = db.parse_extensions("jpg,png")
+    assert exts == {".jpg", ".png"}
+
+
+def test_parse_extensions_star():
+    assert db.parse_extensions("*") is None
+
+
+def test_parse_extensions_empty():
+    assert db.parse_extensions("") is None
+
+
+def test_matches_extension_match():
+    exts = {".jpg", ".png"}
+    assert db.matches_extension("photo.jpg", exts) is True
+    assert db.matches_extension("photo.JPG", exts) is True
+    assert db.matches_extension("photo.png", exts) is True
+
+
+def test_matches_extension_no_match():
+    exts = {".jpg", ".png"}
+    assert db.matches_extension("photo.avi", exts) is False
+
+
+def test_matches_extension_none():
+    assert db.matches_extension("anything.xyz", None) is True
+
+
 def test_get_connection_file():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "test.db")

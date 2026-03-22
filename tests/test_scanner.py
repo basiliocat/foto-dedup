@@ -100,6 +100,24 @@ def test_file_already_scanned(conn):
     assert file_already_scanned(conn, "/a/c.jpg", 1000) is False
 
 
+def test_scan_extension_filter(conn, sample_dir):
+    """Only .bin files should be scanned when filtering by extension."""
+    exts = db.parse_extensions(".bin")
+    scanned, skipped, errors = scan_paths(
+        [sample_dir], conn, min_size=0, scan_id="ext1", extensions=exts,
+    )
+    assert scanned == 2  # large.bin, sub/dup.bin
+    assert skipped >= 1  # small.txt filtered out
+
+
+def test_scan_extension_filter_none(conn, sample_dir):
+    """No extension filter — all files scanned (respecting min_size)."""
+    scanned, _, _ = scan_paths(
+        [sample_dir], conn, min_size=0, scan_id="ext2", extensions=None,
+    )
+    assert scanned == 3
+
+
 def test_scan_nonexistent_path(conn):
     scanned, skipped, errors = scan_paths(["/nonexistent/path"], conn)
     assert scanned == 0

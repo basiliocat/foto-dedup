@@ -6,18 +6,21 @@ import sys
 from collections import defaultdict, namedtuple
 from pathlib import Path
 
+from . import db
 from .dupes import format_size
 
 FileInfo = namedtuple("FileInfo", ["path", "filename", "parent_dir", "size", "mtime"])
 
 
-def collect_files(directory):
+def collect_files(directory, extensions=None):
     """Walk directory recursively, return list of FileInfo for regular files."""
     result = []
     for dirpath, _dirnames, filenames in os.walk(directory, followlinks=False):
         for fname in filenames:
             fpath = Path(dirpath) / fname
             if fpath.is_symlink():
+                continue
+            if not db.matches_extension(fname, extensions):
                 continue
             try:
                 st = fpath.stat()
@@ -104,6 +107,11 @@ def main():
                         help="Match by filename and modification date")
     parser.add_argument("--same-dir", action="store_true",
                         help="Additionally require same parent directory name")
+    parser.add_argument(
+        "--ext",
+        default=db.DEFAULT_EXTENSIONS,
+        help="Comma-separated file extensions to include (default: %(default)s). Use '*' for all files.",
+    )
 
     args = parser.parse_args()
 
@@ -117,10 +125,12 @@ def main():
         if not d.is_dir():
             parser.error(f"{label} directory does not exist: {d}")
 
+    extensions = db.parse_extensions(args.ext)
+
     print(f"Collecting files from bad dir: {bad_dir}", file=sys.stderr)
-    bad_files = collect_files(str(bad_dir))
+    bad_files = collect_files(str(bad_dir), extensions=extensions)
     print(f"Collecting files from good dir: {good_dir}", file=sys.stderr)
-    good_files = collect_files(str(good_dir))
+    good_files = collect_files(str(good_dir), extensions=extensions)
 
     print(f"Bad: {len(bad_files)} files, Good: {len(good_files)} files\n",
           file=sys.stderr)

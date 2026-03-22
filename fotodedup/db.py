@@ -3,6 +3,37 @@
 import sqlite3
 from pathlib import Path
 
+DEFAULT_EXTENSIONS = ".jpg,.jpeg,.avi,.mp4,.heic"
+
+
+def parse_extensions(ext_string):
+    """Parse comma-separated extension string into a set of lowercase extensions.
+
+    Returns None if ext_string is empty or '*' (meaning no filtering).
+    Each extension is normalized to lowercase with a leading dot.
+    """
+    if not ext_string or ext_string.strip() == "*":
+        return None
+    exts = set()
+    for e in ext_string.split(","):
+        e = e.strip().lower()
+        if e.startswith("*."):
+            e = e[1:]  # "*.jpg" -> ".jpg"
+        elif not e.startswith("."):
+            e = "." + e  # "jpg" -> ".jpg"
+        exts.add(e)
+    return exts
+
+
+def matches_extension(filename, extensions):
+    """Check if filename matches any of the extensions (case-insensitive).
+
+    If extensions is None, all files match.
+    """
+    if extensions is None:
+        return True
+    return Path(filename).suffix.lower() in extensions
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY,

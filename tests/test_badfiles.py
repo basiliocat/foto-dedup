@@ -83,6 +83,20 @@ def test_collect_files_empty_dir(dirs):
     assert collect_files(good) == []
 
 
+def test_collect_files_extension_filter(dirs):
+    good, _ = dirs
+    _mkfile(good, "photo.jpg", b"img")
+    _mkfile(good, "video.avi", b"vid")
+    _mkfile(good, "doc.txt", b"text")
+
+    files = collect_files(good, extensions={".jpg"})
+    assert len(files) == 1
+    assert files[0].filename == "photo.jpg"
+
+    files = collect_files(good, extensions=None)
+    assert len(files) == 3
+
+
 # ── match_files ───────────────────────────────────────────────────────
 
 
@@ -219,7 +233,7 @@ def test_main_runs_successfully(dirs, capsys):
 
     import sys
     old_argv = sys.argv
-    sys.argv = ["matcher", bad, good, "--by-name"]
+    sys.argv = ["matcher", bad, good, "--by-name", "--ext", "*"]
     try:
         badfiles.main()
     finally:

@@ -30,7 +30,7 @@ def file_already_scanned(conn, path, size):
     return row is not None
 
 
-def scan_paths(paths, conn, min_size=10240, scan_id=None):
+def scan_paths(paths, conn, min_size=10240, scan_id=None, extensions=None):
     """Scan given paths recursively and insert files into the database.
 
     Returns (scanned_count, skipped_count, error_count).
@@ -58,6 +58,9 @@ def scan_paths(paths, conn, min_size=10240, scan_id=None):
                 fpath = Path(dirpath) / fname
                 try:
                     if fpath.is_symlink():
+                        continue
+                    if not db.matches_extension(fname, extensions):
+                        skipped += 1
                         continue
                     stat = fpath.stat()
                     if stat.st_size < min_size:
@@ -107,7 +110,14 @@ def main():
         default=10240,
         help="Minimum file size in bytes (default: 10240 = 10KB)",
     )
+    parser.add_argument(
+        "--ext",
+        default=db.DEFAULT_EXTENSIONS,
+        help="Comma-separated file extensions to include (default: %(default)s). Use '*' for all files.",
+    )
     args = parser.parse_args()
+
+    extensions = db.parse_extensions(args.ext)
 
     conn = db.get_connection(args.db)
     db.init_db(conn)
@@ -116,11 +126,13 @@ def main():
     print(f"Scan ID: {scan_id}", file=sys.stderr)
     print(f"Database: {args.db}", file=sys.stderr)
     print(f"Min size: {args.min_size} bytes", file=sys.stderr)
+    print(f"Extensions: {args.ext}", file=sys.stderr)
     print(f"Paths: {args.paths}", file=sys.stderr)
     print(file=sys.stderr)
 
     scanned, skipped, errors = scan_paths(
-        args.paths, conn, min_size=args.min_size, scan_id=scan_id
+        args.paths, conn, min_size=args.min_size, scan_id=scan_id,
+        extensions=extensions,
     )
 
     conn.close()

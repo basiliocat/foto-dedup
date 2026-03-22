@@ -113,6 +113,28 @@ def test_print_corrupt_output(conn, capsys):
     assert "Total:" in out
 
 
+def test_find_corrupt_extension_filter(conn):
+    """Extension filter should limit results."""
+    _insert(conn, "/a/photo.jpg", "/a", "photo.jpg", 1000, "aaa")
+    _insert(conn, "/b/photo.jpg", "/b", "photo.jpg", 1000, "bbb")
+    _insert(conn, "/a/video.avi", "/a", "video.avi", 2000, "v1")
+    _insert(conn, "/b/video.avi", "/b", "video.avi", 2000, "v2")
+
+    # Only jpg
+    groups = find_corrupt_candidates(conn, extensions={".jpg"})
+    assert len(groups) == 1
+    assert groups[0][0] == "photo.jpg"
+
+    # Only avi
+    groups = find_corrupt_candidates(conn, extensions={".avi"})
+    assert len(groups) == 1
+    assert groups[0][0] == "video.avi"
+
+    # No filter
+    groups = find_corrupt_candidates(conn, extensions=None)
+    assert len(groups) == 2
+
+
 def test_print_corrupt_no_results(conn, capsys):
     _insert(conn, "/a/photo.jpg", "/a", "photo.jpg", 1000, "same")
     _insert(conn, "/b/photo.jpg", "/b", "photo.jpg", 1000, "same")

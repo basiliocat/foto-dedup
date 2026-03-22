@@ -7,19 +7,36 @@ from . import db
 from .dupes import format_size
 
 
-def find_corrupt_candidates(conn):
+def _ext_filter_sql(extensions):
+    """Build SQL WHERE clause fragment for extension filtering.
+
+    Returns (sql_fragment, params) tuple.
+    """
+    if extensions is None:
+        return "", []
+    conditions = []
+    params = []
+    for ext in extensions:
+        conditions.append("LOWER(filename) LIKE ?")
+        params.append("%" + ext)
+    return "AND (" + " OR ".join(conditions) + ") ", params
+
+
+def find_corrupt_candidates(conn, extensions=None):
     """Find groups of files with same filename+size but different md5.
 
     Returns list of (filename, size, [file_rows]) sorted by size descending.
     Each group contains files that *should* be identical but have divergent hashes.
     """
+    ext_sql, ext_params = _ext_filter_sql(extensions)
     cursor = conn.execute(
         "SELECT filename, size, COUNT(*) as cnt, COUNT(DISTINCT md5) as md5_cnt "
         "FROM files "
-        "WHERE deleted_at IS NULL "
+        "WHERE deleted_at IS NULL " + ext_sql +
         "GROUP BY filename, size "
         "HAVING cnt > 1 AND md5_cnt > 1 "
-        "ORDER BY size DESC"
+        "ORDER BY size DESC",
+        ext_params,
     )
 
     groups = []
@@ -34,9 +51,9 @@ def find_corrupt_candidates(conn):
     return groups
 
 
-def print_corrupt(conn):
+def print_corrupt(conn, extensions=None):
     """Print corruption report to stdout."""
-    groups = find_corrupt_candidates(conn)
+    groups = find_corrupt_candidates(conn, extensions=extensions)
     if not groups:
         print("No corruption candidates found.")
         return
@@ -67,14 +84,21 @@ def main():
         description="Find files with same name and size but different MD5 (potential corruption)."
     )
     parser.add_argument("--db", default="files.db", help="SQLite database path (default: files.db)")
+    parser.add_argument(
+        "--ext",
+        default=db.DEFAULT_EXTENSIONS,
+        help="Comma-separated file extensions to include (default: %(default)s). Use '*' for all files.",
+    )
 
     args = parser.parse_args()
+
+    extensions = db.parse_extensions(args.ext)
 
     conn = db.get_connection(args.db)
     db.init_db(conn)
     ensure_deleted_at_column(conn)
 
-    print_corrupt(conn)
+    print_corrupt(conn, extensions=extensions)
 
     conn.close()
 
