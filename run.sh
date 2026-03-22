@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$DIR/.venv/bin/activate"
+PYTHON="$DIR/.venv/bin/python"
+
+if [ ! -x "$PYTHON" ]; then
+    echo "Error: virtualenv not found. Run ./setup.sh first." >&2
+    exit 1
+fi
 
 MODULE="$1"
 if [ -z "$MODULE" ]; then
@@ -17,4 +22,4 @@ if [ -z "$MODULE" ]; then
 fi
 
 shift
-python -m "fotodedup.$MODULE" "$@"
+"$PYTHON" -m "fotodedup.$MODULE" "$@"
