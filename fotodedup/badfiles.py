@@ -6,8 +6,7 @@ import sys
 from collections import defaultdict, namedtuple
 from pathlib import Path
 
-from . import db
-from .dupes import format_size
+from .utils import DEFAULT_EXTENSIONS, format_size, matches_extension, parse_extensions
 
 FileInfo = namedtuple("FileInfo", ["path", "filename", "parent_dir", "size", "mtime"])
 
@@ -20,7 +19,7 @@ def collect_files(directory, extensions=None):
             fpath = Path(dirpath) / fname
             if fpath.is_symlink():
                 continue
-            if not db.matches_extension(fname, extensions):
+            if not matches_extension(fname, extensions):
                 continue
             try:
                 st = fpath.stat()
@@ -109,7 +108,7 @@ def main():
                         help="Additionally require same parent directory name")
     parser.add_argument(
         "--ext",
-        default=db.DEFAULT_EXTENSIONS,
+        default=DEFAULT_EXTENSIONS,
         help="Comma-separated file extensions to include (default: %(default)s). Use '*' for all files.",
     )
 
@@ -125,7 +124,7 @@ def main():
         if not d.is_dir():
             parser.error(f"{label} directory does not exist: {d}")
 
-    extensions = db.parse_extensions(args.ext)
+    extensions = parse_extensions(args.ext)
 
     print(f"Collecting files from bad dir: {bad_dir}", file=sys.stderr)
     bad_files = collect_files(str(bad_dir), extensions=extensions)

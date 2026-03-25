@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from . import db
-from .dupes import format_size
+from .utils import format_size
 
 
 def _ext_filter_sql(extensions):

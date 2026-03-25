@@ -25,10 +25,10 @@
 ./setup.sh
 
 # Сканирование директорий
-./run.sh scanner /path/to/photos /path/to/backup
+./run.sh scan /path/to/photos /path/to/backup
 
 # Поиск дубликатов
-./run.sh dupes dupes --db files.db
+./run.sh dupes --db files.db
 
 # Проверка на порчу данных
 ./run.sh corrupt --db files.db
@@ -47,14 +47,14 @@ source .venv/bin/activate
 
 ## Использование
 
-Все модули запускаются через `./run.sh <модуль> [аргументы...]` или напрямую: `python -m fotodedup.<модуль> [аргументы...]`.
+Все команды запускаются через `./run.sh <команда> [аргументы...]` или напрямую: `python -m fotodedup <команда> [аргументы...]`.
 
 ### 1. Сканирование файлов
 
 Рекурсивно обходит директории, вычисляет MD5-хеши и сохраняет метаданные в SQLite.
 
 ```bash
-./run.sh scanner /path/to/dir1 /path/to/dir2 --db files.db --min-size 10240
+./run.sh scan /path/to/dir1 /path/to/dir2 --db files.db --min-size 10240
 ```
 
 | Параметр | По умолчанию | Описание |
@@ -74,8 +74,15 @@ source .venv/bin/activate
 Группирует файлы по совпадению md5+size, сортировка по потерянному пространству (крупные первыми).
 
 ```bash
-./run.sh dupes dupes --db files.db
+./run.sh dupes --db files.db
+./run.sh dupes --db files.db --ext jpg,png --min-size 10240
 ```
+
+| Параметр | По умолчанию | Описание |
+|----------|-------------|----------|
+| `--db` | `files.db` | Путь к базе данных SQLite |
+| `--ext` | все | Список расширений через запятую (напр. `jpg,png`) |
+| `--min-size` | `0` | Минимальный размер файла в байтах |
 
 Пример вывода:
 ```
@@ -92,8 +99,15 @@ Total: 3 duplicate groups, wasted space: 45.6 MB
 Показывает пересечение двух деревьев директорий — сколько файлов общих и что уникально для каждой.
 
 ```bash
-./run.sh dupes compare /photos /backup --db files.db
+./run.sh compare /photos /backup --db files.db
+./run.sh compare /photos /backup --db files.db --ext jpg,png --min-size 10240
 ```
+
+| Параметр | По умолчанию | Описание |
+|----------|-------------|----------|
+| `--db` | `files.db` | Путь к базе данных SQLite |
+| `--ext` | все | Список расширений через запятую (напр. `jpg,png`) |
+| `--min-size` | `0` | Минимальный размер файла в байтах |
 
 Пример вывода:
 ```
@@ -119,13 +133,19 @@ Overlap: 80.0% of B is in A
 
 ```bash
 # Только отчёт (по умолчанию)
-./run.sh cleanup --db files.db
+./run.sh cross-dupes --db files.db
+
+# Пробный прогон без удаления
+./run.sh cross-dupes --db files.db --dry-run
 
 # Интерактивное удаление
-./run.sh cleanup --db files.db --delete
+./run.sh cross-dupes --db files.db --delete
 
 # Отключение отдельных критериев
-./run.sh cleanup --db files.db --no-name --delete
+./run.sh cross-dupes --db files.db --no-name --delete
+
+# Фильтрация по расширению и минимальному размеру
+./run.sh cross-dupes --db files.db --ext jpg,png --min-size 10240
 ```
 
 | Параметр | По умолчанию | Описание |
@@ -134,6 +154,9 @@ Overlap: 80.0% of B is in A
 | `--no-name` | включено | Отключить сопоставление по имени файла |
 | `--no-size` | включено | Отключить сопоставление по размеру |
 | `--no-md5` | включено | Отключить сопоставление по MD5 |
+| `--ext` | все | Список расширений через запятую (напр. `jpg,png`) |
+| `--min-size` | `0` | Минимальный размер файла в байтах |
+| `--dry-run` | выкл | Показать, что будет удалено, без фактического удаления |
 | `--delete` | выкл | Включить интерактивный режим удаления |
 
 По умолчанию все три критерия объединяются по AND: файлы должны совпадать по имени, размеру и MD5. Можно ослабить проверку, отключив критерии флагами `--no-name`, `--no-size` или `--no-md5`.
@@ -190,7 +213,7 @@ Total: 2 groups, 5 files with potential corruption
 Поиск целых копий повреждённых файлов по метаданным файловой системы (без базы данных).
 
 ```bash
-./run.sh badfiles /bad/dir /good/dir --by-name --by-size --same-dir
+./run.sh match-bad /bad/dir /good/dir --by-name --by-size --same-dir
 ```
 
 | Параметр | Описание |
@@ -231,18 +254,22 @@ pytest tests/ -v
 
 ```
 fotodedup/
+├── utils.py       # Утилиты: format_size, parse_extensions, DEFAULT_DB/EXTENSIONS
+├── cli.py         # Единая точка входа (subcommands)
 ├── db.py          # SQLite: схема, init_db(), insert_file(), get_connection()
-├── scanner.py     # CLI: рекурсивный обход, MD5 блоками по 1МБ, инкрементальное сканирование
-├── dupes.py       # CLI: подкоманды dupes и compare
-├── badfiles.py    # CLI: поиск целых копий битых файлов
-├── cleanup.py     # CLI: кросс-директорные дубликаты, отчёт и интерактивное удаление
-└── corrupt.py     # CLI: детектор порчи данных (имя+размер совпадают, md5 нет)
+├── scanner.py     # Команда scan: рекурсивный обход, MD5 блоками по 1МБ, инкрементальность
+├── dupes.py       # Команды dupes и compare
+├── crossdupes.py  # Команда cross-dupes: кросс-директорные дубликаты
+├── cleanup.py     # Обёртка для обратной совместимости → crossdupes
+├── corrupt.py     # Команда corrupt: детектор порчи данных (имя+размер совпадают, md5 нет)
+└── badfiles.py    # Команда match-bad: поиск целых копий битых файлов
 tests/
 ├── test_db.py     # Схема, вставка, upsert, персистентность
 ├── test_scanner.py # MD5, сканирование, min-size фильтр, инкрементальность
 ├── test_dupes.py  # Дубликаты, сортировка, compare, пустые директории
 ├── test_badfiles.py # collect_files, критерии сопоставления, CLI
-├── test_cleanup.py # Миграция, кросс-дубликаты, пары директорий, удаление, интерактив
+├── test_cleanup.py # Обратная совместимость
+├── test_crossdupes.py # Кросс-дубликаты, пары директорий, удаление, интерактив
 └── test_corrupt.py # Детектор порчи данных
 ```
 

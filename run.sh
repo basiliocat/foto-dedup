@@ -8,18 +8,15 @@ if [ ! -x "$PYTHON" ]; then
     exit 1
 fi
 
-MODULE="$1"
-if [ -z "$MODULE" ]; then
-    echo "Usage: ./run.sh <module> [args...]"
-    echo ""
-    echo "Modules:"
-    echo "  scanner   - Scan directories and compute MD5 hashes"
-    echo "  dupes     - Find duplicates or compare directories"
-    echo "  cleanup   - Cross-directory duplicate cleanup"
-    echo "  corrupt   - Detect data corruption"
-    echo "  badfiles  - Find intact copies of corrupted files"
-    exit 1
+if [ -z "$1" ]; then
+    "$PYTHON" -m fotodedup --help
+    exit 0
 fi
 
-shift
-"$PYTHON" -m "fotodedup.$MODULE" "$@"
+# Backward-compatible aliases for old command names
+case "$1" in
+    scanner)  shift; exec "$PYTHON" -m fotodedup scan "$@" ;;
+    cleanup)  shift; exec "$PYTHON" -m fotodedup cross-dupes "$@" ;;
+    badfiles) shift; exec "$PYTHON" -m fotodedup match-bad "$@" ;;
+    *)        exec "$PYTHON" -m fotodedup "$@" ;;
+esac

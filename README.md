@@ -25,10 +25,10 @@ Zero external dependencies — uses only Python standard library.
 ./setup.sh
 
 # Scan directories
-./run.sh scanner /path/to/photos /path/to/backup
+./run.sh scan /path/to/photos /path/to/backup
 
 # Find duplicates
-./run.sh dupes dupes --db files.db
+./run.sh dupes --db files.db
 
 # Check for corruption
 ./run.sh corrupt --db files.db
@@ -47,14 +47,14 @@ Requirements: Python 3.8+ (only stdlib is used: `hashlib`, `sqlite3`, `argparse`
 
 ## Usage
 
-All modules can be run via `./run.sh <module> [args...]` or directly with `python -m fotodedup.<module> [args...]`.
+All commands are run via `./run.sh <command> [args...]` or directly with `python -m fotodedup <command> [args...]`.
 
 ### 1. Scanning Files
 
 Recursively scans directories, computes MD5 hashes, and stores metadata in SQLite.
 
 ```bash
-./run.sh scanner /path/to/dir1 /path/to/dir2 --db files.db --min-size 10240
+./run.sh scan /path/to/dir1 /path/to/dir2 --db files.db --min-size 10240
 ```
 
 | Option | Default | Description |
@@ -74,8 +74,15 @@ Recursively scans directories, computes MD5 hashes, and stores metadata in SQLit
 Groups files by identical md5+size, sorted by wasted space (largest first).
 
 ```bash
-./run.sh dupes dupes --db files.db
+./run.sh dupes --db files.db
+./run.sh dupes --db files.db --ext jpg,png --min-size 10240
 ```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--db` | `files.db` | SQLite database path |
+| `--ext` | all | Comma-separated list of extensions to include (e.g. `jpg,png`) |
+| `--min-size` | `0` | Minimum file size in bytes to include |
 
 Example output:
 ```
@@ -92,8 +99,15 @@ Total: 3 duplicate groups, wasted space: 45.6 MB
 Shows overlap between two directory trees — how many files they share and what's unique to each.
 
 ```bash
-./run.sh dupes compare /photos /backup --db files.db
+./run.sh compare /photos /backup --db files.db
+./run.sh compare /photos /backup --db files.db --ext jpg,png --min-size 10240
 ```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--db` | `files.db` | SQLite database path |
+| `--ext` | all | Comma-separated list of extensions to include (e.g. `jpg,png`) |
+| `--min-size` | `0` | Minimum file size in bytes to include |
 
 Example output:
 ```
@@ -119,13 +133,19 @@ Finds duplicates across directories with configurable matching criteria and prov
 
 ```bash
 # Report only (default)
-./run.sh cleanup --db files.db
+./run.sh cross-dupes --db files.db
+
+# Dry run (no actual deletion)
+./run.sh cross-dupes --db files.db --dry-run
 
 # Interactive deletion
-./run.sh cleanup --db files.db --delete
+./run.sh cross-dupes --db files.db --delete
 
 # Disable specific criteria
-./run.sh cleanup --db files.db --no-name --delete
+./run.sh cross-dupes --db files.db --no-name --delete
+
+# Filter by extension and minimum size
+./run.sh cross-dupes --db files.db --ext jpg,png --min-size 10240
 ```
 
 | Option | Default | Description |
@@ -134,6 +154,9 @@ Finds duplicates across directories with configurable matching criteria and prov
 | `--no-name` | enabled | Disable matching by filename |
 | `--no-size` | enabled | Disable matching by file size |
 | `--no-md5` | enabled | Disable matching by MD5 hash |
+| `--ext` | all | Comma-separated list of extensions to include (e.g. `jpg,png`) |
+| `--min-size` | `0` | Minimum file size in bytes to include |
+| `--dry-run` | off | Show what would be deleted without actually deleting |
 | `--delete` | off | Enable interactive deletion mode |
 
 By default, all three criteria are combined with AND logic: files must match on filename, size, and MD5 to be considered duplicates. You can relax matching by disabling criteria with `--no-name`, `--no-size`, or `--no-md5`.
@@ -190,7 +213,7 @@ Files are grouped by name+size and sorted by size (largest first). The truncated
 Finds intact copies of corrupted files by matching on filesystem metadata (no database required).
 
 ```bash
-./run.sh badfiles /bad/dir /good/dir --by-name --by-size --same-dir
+./run.sh match-bad /bad/dir /good/dir --by-name --by-size --same-dir
 ```
 
 | Option | Description |
@@ -231,18 +254,22 @@ pytest tests/ -v
 
 ```
 fotodedup/
+├── utils.py       # Utilities: format_size, parse_extensions, DEFAULT_DB/EXTENSIONS
+├── cli.py         # Unified entry point (subcommands)
 ├── db.py          # SQLite schema, init_db(), insert_file(), get_connection()
-├── scanner.py     # CLI: recursive walk, MD5 in 1MB blocks, incremental scanning
-├── dupes.py       # CLI: dupes and compare subcommands
-├── badfiles.py    # CLI: find intact copies of corrupted files
-├── cleanup.py     # CLI: cross-directory duplicates, report and interactive deletion
-└── corrupt.py     # CLI: corruption detection (same name+size, different md5)
+├── scanner.py     # Command scan: recursive walk, MD5 in 1MB blocks, incremental scanning
+├── dupes.py       # Commands dupes and compare
+├── crossdupes.py  # Command cross-dupes: cross-directory duplicates
+├── cleanup.py     # Backward compatibility wrapper → crossdupes
+├── corrupt.py     # Command corrupt: corruption detection (same name+size, different md5)
+└── badfiles.py    # Command match-bad: find intact copies of corrupted files
 tests/
 ├── test_db.py     # Schema, insert, upsert, persistence
 ├── test_scanner.py # MD5, scanning, min-size filter, incrementality
 ├── test_dupes.py  # Duplicates, sorting, compare, empty directories
 ├── test_badfiles.py # collect_files, matching criteria, CLI
-├── test_cleanup.py # Migration, cross-dir dupes, dir pairs, deletion, interactive
+├── test_cleanup.py # Backward compatibility
+├── test_crossdupes.py # Cross-dir dupes, dir pairs, deletion, interactive
 └── test_corrupt.py # Corruption detector
 ```
 

@@ -6,7 +6,7 @@ import sys
 import pytest
 
 from fotodedup import db
-from fotodedup.dupes import find_dupes, format_size, print_dupes, compare_dirs
+from fotodedup.dupes import find_dupes, format_size, print_dupes, compare_dirs, find_file, print_find_results
 
 
 @pytest.fixture
@@ -111,3 +111,55 @@ def test_compare_dirs_empty(conn, capsys):
     compare_dirs(conn, "/empty1", "/empty2")
     err = capsys.readouterr().err
     assert "No files found" in err
+
+
+def test_find_file_by_name(conn):
+    _insert(conn, "/a/photo.jpg", "/a", "photo.jpg", 1000, "aaa")
+    _insert(conn, "/b/photo.jpg", "/b", "photo.jpg", 2000, "bbb")
+    _insert(conn, "/c/other.jpg", "/c", "other.jpg", 500, "ccc")
+
+    results = find_file(conn, "photo.jpg")
+    assert len(results) == 2
+    assert results[0]["path"] == "/a/photo.jpg"
+    assert results[1]["path"] == "/b/photo.jpg"
+
+
+def test_find_file_by_name_and_size(conn):
+    _insert(conn, "/a/photo.jpg", "/a", "photo.jpg", 1000, "aaa")
+    _insert(conn, "/b/photo.jpg", "/b", "photo.jpg", 2000, "bbb")
+
+    results = find_file(conn, "photo.jpg", size=1000)
+    assert len(results) == 1
+    assert results[0]["path"] == "/a/photo.jpg"
+
+
+def test_find_file_wildcard(conn):
+    _insert(conn, "/a/IMG_001.jpg", "/a", "IMG_001.jpg", 100, "x1")
+    _insert(conn, "/a/IMG_002.jpg", "/a", "IMG_002.jpg", 200, "x2")
+    _insert(conn, "/a/video.mp4", "/a", "video.mp4", 300, "x3")
+
+    results = find_file(conn, "IMG%")
+    assert len(results) == 2
+
+
+def test_find_file_no_results(conn):
+    _insert(conn, "/a/photo.jpg", "/a", "photo.jpg", 100, "aaa")
+    results = find_file(conn, "missing.jpg")
+    assert results == []
+
+
+def test_print_find_results_output(conn, capsys):
+    _insert(conn, "/a/photo.jpg", "/a", "photo.jpg", 1000, "aaa")
+    _insert(conn, "/b/photo.jpg", "/b", "photo.jpg", 1000, "aaa")
+
+    print_find_results(conn, "photo.jpg")
+    out = capsys.readouterr().out
+    assert "/a/photo.jpg" in out
+    assert "/b/photo.jpg" in out
+    assert "Found: 2" in out
+
+
+def test_print_find_results_empty(conn, capsys):
+    print_find_results(conn, "missing.jpg")
+    out = capsys.readouterr().out
+    assert "No files found" in out

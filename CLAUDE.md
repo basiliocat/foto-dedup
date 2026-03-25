@@ -5,39 +5,52 @@
 ## Быстрый старт
 
 ```bash
-./setup.sh                          # создание venv, установка pytest
-./run.sh scanner /path/to/dir       # сканирование
-./run.sh dupes dupes --db files.db  # поиск дубликатов
+./setup.sh                       # создание venv, установка pytest
+./run.sh scan /path/to/dir       # сканирование
+./run.sh dupes --db files.db     # поиск дубликатов
 ```
 
 ## Команды
 
-Все модули: `./run.sh <модуль> [аргументы...]` или `python -m fotodedup.<модуль> [аргументы...]`.
+Единая точка входа: `./run.sh <команда> [аргументы...]` или `python -m fotodedup <команда> [аргументы...]`.
 
 ```bash
 # Сканирование (записывает в SQLite: путь, размер, MD5)
-./run.sh scanner /path1 /path2 --db files.db --min-size 10240
+./run.sh scan /path1 /path2 --db files.db --min-size 10240
 
 # Поиск дубликатов (группы по md5+size, крупные первыми)
-./run.sh dupes dupes --db files.db
+./run.sh dupes --db files.db
+./run.sh dupes --db files.db --ext jpg,png --min-size 10240
 
 # Сравнение двух директорий (% пересечения, уникальные, общий размер дубликатов)
-./run.sh dupes compare /dir/a /dir/b --db files.db
+./run.sh compare /dir/a /dir/b --db files.db
+./run.sh compare /dir/a /dir/b --db files.db --ext jpg,png --min-size 10240
 
 # Поиск хороших аналогов битых файлов (по имени, размеру, дате, каталогу)
-./run.sh badfiles /bad/dir /good/dir --by-name --by-size --same-dir
+./run.sh match-bad /bad/dir /good/dir --by-name --by-size --same-dir
 
 # Поиск кросс-директорных дубликатов (отчёт)
-./run.sh cleanup --db files.db
+./run.sh cross-dupes --db files.db
+
+# Пробный прогон без удаления (--dry-run)
+./run.sh cross-dupes --db files.db --dry-run
 
 # Интерактивное удаление дубликатов
-./run.sh cleanup --db files.db --delete
+./run.sh cross-dupes --db files.db --delete
 
 # Отключение критериев (по умолчанию AND: имя+размер+md5)
-./run.sh cleanup --db files.db --no-name --delete
+./run.sh cross-dupes --db files.db --no-name --delete
+
+# Фильтрация по расширению и минимальному размеру
+./run.sh cross-dupes --db files.db --ext jpg,png --min-size 10240
 
 # Проверка на порчу данных (одинаковое имя+размер, разный MD5)
 ./run.sh corrupt --db files.db
+
+# Поиск файла по имени в базе
+./run.sh find photo.jpg --db files.db
+./run.sh find photo.jpg --size 1048576 --db files.db
+./run.sh find "IMG%" --db files.db    # wildcard-поиск
 ```
 
 ## Тесты
@@ -51,18 +64,22 @@ pytest tests/ -v
 
 ```
 fotodedup/
-├── db.py          # SQLite: схема таблицы files, init_db(), insert_file(), get_connection()
-├── scanner.py     # CLI: рекурсивный обход, MD5 блоками по 1MB, инкрементальное сканирование
-├── dupes.py       # CLI: подкоманды dupes и compare
-├── badfiles.py    # CLI: поиск хороших аналогов битых файлов по size/name/mtime
-├── cleanup.py     # CLI: кросс-директорные дубликаты, отчёт и интерактивное удаление
-└── corrupt.py     # CLI: проверка на порчу данных (имя+размер совпадают, md5 нет)
+├── utils.py       # Утилиты: format_size, parse_extensions, DEFAULT_DB/EXTENSIONS
+├── cli.py         # Единая точка входа (subcommands)
+├── db.py          # SQLite: схема, init_db(), insert_file(), get_connection()
+├── scanner.py     # Команда scan: рекурсивный обход, MD5 блоками по 1MB, инкрементальность
+├── dupes.py       # Команды dupes и compare
+├── crossdupes.py  # Команда cross-dupes: кросс-директорные дубликаты
+├── cleanup.py     # Обёртка для обратной совместимости → crossdupes
+├── corrupt.py     # Команда corrupt: детектор порчи данных (имя+размер совпадают, md5 нет)
+└── badfiles.py    # Команда match-bad: поиск целых копий битых файлов по size/name/mtime
 tests/
 ├── test_db.py     # схема, вставка, upsert, персистентность
 ├── test_scanner.py # MD5, сканирование, min-size фильтр, инкрементальность
 ├── test_dupes.py  # дубликаты, сортировка, compare, пустые директории
 ├── test_badfiles.py # collect_files, match по критериям, CLI
-├── test_cleanup.py # миграция, кросс-дубликаты, пары директорий, удаление, интерактив
+├── test_cleanup.py # обратная совместимость
+├── test_crossdupes.py # кросс-дубликаты, пары директорий, удаление, интерактив
 └── test_corrupt.py # детектор порчи данных
 ```
 
@@ -72,7 +89,7 @@ tests/
 
 Индексы: `md5+size`, `dir`, `path+size`.
 
-Колонка `deleted_at` (добавляется миграцией в cleanup) — timestamp удаления файла, NULL если не удалён.
+Колонка `deleted_at` (добавляется миграцией в crossdupes) — timestamp удаления файла, NULL если не удалён.
 
 ## Особенности реализации
 
